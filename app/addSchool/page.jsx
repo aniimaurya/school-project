@@ -18,23 +18,19 @@ export default function AddSchool() {
     setSubmitting(true);
     setMessage('');
 
-    // Prepare JSON body without image
-    const body = {
-      name: data.name,
-      address: data.address,
-      city: data.city,
-      state: data.state,
-      contact: data.contact,
-      email_id: data.email_id,
-    };
-
     try {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('address', data.address);
+      formData.append('city', data.city);
+      formData.append('state', data.state);
+      formData.append('contact', data.contact);
+      formData.append('email_id', data.email_id);
+      formData.append('image', data.image[0]); // Append image file
+
       const res = await fetch('/api/schools', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+        body: formData,
       });
 
       if (res.ok) {
@@ -44,8 +40,8 @@ export default function AddSchool() {
         const errorData = await res.json();
         setMessage(`Error: ${errorData.error || 'Failed to add school'}`);
       }
-    } catch {
-      setMessage('An error occurred.');
+    } catch (err) {
+      setMessage(`Error: ${err.message}`);
     }
 
     setSubmitting(false);
@@ -54,7 +50,7 @@ export default function AddSchool() {
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded shadow-md">
       <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Add School</h1>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} encType="multipart/form-data" className="space-y-6">
         {[
           { label: 'Name', name: 'name', type: 'text', placeholder: 'School Name' },
           { label: 'Address', name: 'address', type: 'text', placeholder: 'Address' },
@@ -100,6 +96,22 @@ export default function AddSchool() {
           </div>
         ))}
 
+        <div>
+          <label className="block font-semibold mb-1 text-gray-700" htmlFor="image">
+            Image
+          </label>
+          <input
+            id="image"
+            type="file"
+            accept="image/*"
+            {...register('image', { required: 'Image is required' })}
+            className={`w-full ${errors.image ? 'border-red-500' : ''}`}
+          />
+          {errors.image && (
+            <p className="text-red-600 mt-1 text-sm">{errors.image.message}</p>
+          )}
+        </div>
+
         <button
           type="submit"
           disabled={submitting}
@@ -112,9 +124,7 @@ export default function AddSchool() {
       {message && (
         <p
           className={`mt-4 text-center font-semibold ${
-            message.toLowerCase().includes('error')
-              ? 'text-red-600'
-              : 'text-green-600'
+            message.toLowerCase().includes('error') ? 'text-red-600' : 'text-green-600'
           }`}
         >
           {message}

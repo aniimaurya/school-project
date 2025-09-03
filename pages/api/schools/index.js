@@ -1,5 +1,19 @@
 import nextConnect from 'next-connect';
+import { v2 as cloudinary } from 'cloudinary';
+import multiparty from 'multiparty';
 import pool from '../../../lib/db';
+
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+  api_key: process.env.CLOUDINARY_API_KEY, 
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+export const config = {
+  api: {
+    bodyParser: false, // Disable built-in bodyParser to use multiparty
+  },
+};
 
 const handler = nextConnect({
   onError(error, req, res) {
@@ -12,26 +26,49 @@ const handler = nextConnect({
 });
 
 handler.post(async (req, res) => {
-  try {
-    const { name, address, city, state, contact, email_id } = req.body;
+  const form = new multiparty.Form();
 
-    if (!name || !address || !city || !state || !contact || !email_id) {
-      return res.status(400).json({ error: 'All fields are required' });
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      console.error('Form parse error:', err);
+      return res.status(500).json({ error: 'Failed to parse form data' });
     }
 
-    const image = ''; // Image upload disabled for now
+    try {
+      // Extract text fields from parsed fields object
+      const name = fields.name && fields.name[0];
+      const address = fields.address && fields.address[0];
+      const city = fields.city && fields.city[0];
+      const state = fields.state && fields.state[0];
+      const contact = fields.contact && fields.contact[0];
+      const email_id = fields.email_id && fields.email_id[0];
 
-    const [result] = await pool.query(
-      `INSERT INTO schools (name, address, city, state, contact, image, email_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name, address, city, state, contact, image, email_id]
-    );
+      if (!name || !address || !city || !state || !contact || !email_id) {
+        return res.status(400).json({ error: 'All fields except image are required' });
+      }
 
-    res.status(201).json({ message: 'School added successfully', id: result.insertId });
-  } catch (error) {
-    console.error('POST /api/schools error:', error);
-    res.status(500).json({ error: error.message });
-  }
+      // Upload image file if provided
+      let imageUrl = '';
+      if (files.image && files.image[0]) {
+        const uploadResult = await cloudinary.uploader.upload(files.image[0].path, {
+          folder: 'school-images',
+        });
+        imageUrl = uploadResult.secure_url;
+      }
+
+      // Insert into DB
+      const [result] = await pool.query(
+        `INSERT INTO schools (name, address, city, state, contact, image, email_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [name, address, city, state, contact, imageUrl, email_id]
+      );
+
+      res.status(201).json({ message: 'School added successfully', id: result.insertId });
+    } catch (error) {
+      console.error('POST /api/schools error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 });
 
 handler.get(async (req, res) => {
@@ -43,9 +80,5 @@ handler.get(async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-export const config = {
-  api: { bodyParser: true } // Enable body parser for JSON since multer removed
-};
 
 export default handler;
