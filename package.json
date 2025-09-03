@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "cloudinary": "^2.7.0",
     "multer": "^2.0.2",
+    "multiparty": "^4.2.3",
     "mysql2": "^3.14.4",
     "next": "15.5.2",
     "next-connect": "^0.12.2",
